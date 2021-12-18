@@ -14,6 +14,7 @@ import (
 	"github.com/felixge/fgprof"
 )
 
+// Profile modes.
 const (
 	CpuMode          = "cpu"
 	TraceMode        = "trace"
@@ -26,7 +27,7 @@ const (
 	FgprofMode       = "fgprof"
 )
 
-// Run ...
+// Run a profiler based on a config.
 func Run(ctx context.Context, cfg Config) error {
 	p, err := NewProfiler(cfg)
 	if err != nil {
@@ -35,15 +36,19 @@ func Run(ctx context.Context, cfg Config) error {
 	return p.Run(ctx)
 }
 
-// Profiler ...
+// Profiler for the Go programs.
 type Profiler struct {
 	profileMode   string
 	output        io.WriteCloser
 	useTextFormat bool
-	fgprofFormat  fgprof.Format
+
+	memProfileRate       int
+	blockProfileRate     int
+	mutexProfileFraction int
+	fgprofFormat         fgprof.Format
 }
 
-// Config ...
+// Config of the profiler.
 type Config struct {
 	// Disable the profiler. Easy to set as a command-line flag. Default is false.
 	Disable bool
@@ -61,13 +66,17 @@ type Config struct {
 	// UseTextFormat of the resulting pprof file. Default is false.
 	UseTextFormat bool
 
-	// Profiles related parameters.
-	MemProfileRate int
+	// MutexProfileFraction represents the fraction of mutex contention events. Default is 10.
+	MutexProfileFraction int
 
+	// BlockProfileRate represents the fraction of goroutine blocking events. Default is 10_000.
+	BlockProfileRate int
+
+	// FgprofFormat is a format of the output file. Default is fgprof.FormatPprof.
 	FgprofFormat fgprof.Format
 }
 
-// NewProfiler ...
+// NewProfiler creates new Profile based on a config.
 func NewProfiler(cfg Config) (*Profiler, error) {
 	if cfg.ProfileMode == "" {
 		cfg.ProfileMode = CpuMode
@@ -77,6 +86,12 @@ func NewProfiler(cfg Config) (*Profiler, error) {
 	}
 	if cfg.FgprofFormat == "" {
 		cfg.FgprofFormat = fgprof.FormatPprof
+	}
+	if cfg.MutexProfileFraction == 0 {
+		cfg.MutexProfileFraction = 10
+	}
+	if cfg.BlockProfileRate == 0 {
+		cfg.BlockProfileRate = 10_000
 	}
 
 	var prefix string
@@ -100,7 +115,7 @@ func NewProfiler(cfg Config) (*Profiler, error) {
 	return p, nil
 }
 
-// Run ...
+// Run the profiler.
 func (p *Profiler) Run(ctx context.Context) error {
 	// a bit hacky but simple
 	var fgprofStop func() error
@@ -115,9 +130,9 @@ func (p *Profiler) Run(ctx context.Context) error {
 			return err
 		}
 	case MutexMode:
-		runtime.SetMutexProfileFraction(1)
+		runtime.SetMutexProfileFraction(p.mutexProfileFraction)
 	case BlockMode:
-		runtime.SetBlockProfileRate(1)
+		runtime.SetBlockProfileRate(p.blockProfileRate)
 	case FgprofMode:
 		fgprofStop = fgprof.Start(p.output, p.fgprofFormat)
 	default:
