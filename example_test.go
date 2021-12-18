@@ -138,6 +138,17 @@ func ExampleGoroutineProfile() {
 	// Output:
 }
 
+func ExampleFgprofProfile() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go easypprof.Run(ctx, easypprof.Config{
+		ProfileMode: easypprof.FgprofMode,
+	})
+
+	// Output:
+}
+
 func ExampleProfilePath() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

@@ -10,6 +10,8 @@ import (
 	"runtime/pprof"
 	"runtime/trace"
 	"time"
+
+	"github.com/felixge/fgprof"
 )
 
 const (
@@ -21,6 +23,7 @@ const (
 	BlockMode        = "block"
 	ThreadCreateMode = "threadcreate"
 	GoroutineMode    = "goroutine"
+	FgprofMode       = "fgprof"
 )
 
 // Run ...
@@ -37,6 +40,7 @@ type Profiler struct {
 	profileMode   string
 	output        io.WriteCloser
 	useTextFormat bool
+	fgprofFormat  fgprof.Format
 }
 
 // Config ...
@@ -59,6 +63,8 @@ type Config struct {
 
 	// Profiles related parameters.
 	MemProfileRate int
+
+	FgprofFormat fgprof.Format
 }
 
 // NewProfiler ...
@@ -68,6 +74,9 @@ func NewProfiler(cfg Config) (*Profiler, error) {
 	}
 	if cfg.OutputDir == "" {
 		cfg.OutputDir = "."
+	}
+	if cfg.FgprofFormat == "" {
+		cfg.FgprofFormat = fgprof.FormatPprof
 	}
 
 	var prefix string
@@ -86,12 +95,16 @@ func NewProfiler(cfg Config) (*Profiler, error) {
 		profileMode:   cfg.ProfileMode,
 		output:        output,
 		useTextFormat: cfg.UseTextFormat,
+		fgprofFormat:  cfg.FgprofFormat,
 	}
 	return p, nil
 }
 
 // Run ...
 func (p *Profiler) Run(ctx context.Context) error {
+	// a bit hacky but simple
+	var fgprofStop func() error
+
 	switch p.profileMode {
 	case CpuMode:
 		if err := pprof.StartCPUProfile(p.output); err != nil {
@@ -105,6 +118,8 @@ func (p *Profiler) Run(ctx context.Context) error {
 		runtime.SetMutexProfileFraction(1)
 	case BlockMode:
 		runtime.SetBlockProfileRate(1)
+	case FgprofMode:
+		fgprofStop = fgprof.Start(p.output, p.fgprofFormat)
 	default:
 		// pass
 	}
@@ -120,11 +135,18 @@ func (p *Profiler) Run(ctx context.Context) error {
 		runtime.SetMutexProfileFraction(0)
 	case BlockMode:
 		runtime.SetBlockProfileRate(0)
+	case FgprofMode:
+		if err := fgprofStop(); err != nil {
+			return err
+		}
 	default:
 		// pass
 	}
 
-	if p.profileMode != CpuMode && p.profileMode != TraceMode {
+	switch p.profileMode {
+	case CpuMode, TraceMode, FgprofMode:
+		// skip
+	default:
 		profile := pprof.Lookup(p.profileMode)
 		if err := profile.WriteTo(p.output, bool2int(p.useTextFormat)); err != nil {
 			return err
