@@ -1,10 +1,11 @@
 name: build
 
+permissions: read-all
+
 on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
   workflow_dispatch:
     inputs:
       tag:
@@ -12,44 +13,20 @@ on:
         required: true
         default: 'v0.0.0'
 
+# See https://github.com/cristalhq/.github/.github/workflows
 jobs:
-
   build:
-    name: Build & Test
-    runs-on: ubuntu-latest
-    steps:
-    - name: Set up Go 1.x
-      uses: actions/setup-go@v2
-      with:
-        go-version: ^1.17
+    uses: cristalhq/.github/.github/workflows/build.yml@454df049fccd7d81729b0c567b75662a2b77e97a # v0.1.3
 
-    - name: Check out code
-      uses: actions/checkout@v2
-
-    - name: Test
-      run: go test -v -race -shuffle=on -coverprofile=coverage.txt ./...
-
-    - name: Upload Coverage
-      uses: codecov/codecov-action@v1
-      continue-on-error: true
-      with:
-        token: ${{secrets.CODECOV_TOKEN}}
-        file: ./coverage.txt
-        fail_ci_if_error: false
+  codeql:
+    permissions:
+      security-events: write
+    uses: cristalhq/.github/.github/workflows/codeql.yml@454df049fccd7d81729b0c567b75662a2b77e97a # v0.1.3
 
   release:
     if: github.event_name == 'workflow_dispatch'
-
-    name: Release
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Checkout with tags
-        run: git fetch --prune --unshallow --tags
-
-      - name: Create release
-        run: |
-          git log --format="%C(auto) %H %s" `git tag --sort=-committerdate | head -1`...HEAD > changelog.txt
-          echo ${{ secrets.GITHUB_TOKEN }} | gh auth login --with-token
-          gh release create ${{ github.event.inputs.tag }} -t ${{ github.event.inputs.tag }} -F changelog.txt
+    uses: cristalhq/.github/.github/workflows/release.yml@454df049fccd7d81729b0c567b75662a2b77e97a # v0.1.3
+    permissions: 
+      contents: write
+    with:
+      tag: ${{ github.event.input.tag }}
