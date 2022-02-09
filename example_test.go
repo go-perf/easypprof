@@ -12,7 +12,7 @@ import (
 func ExampleEasyPprof() {
 	cfg := easypprof.Config{
 		Disable:              os.Getenv("NO_EASY_PPROF") == "true",
-		ProfileMode:          easypprof.CpuMode,
+		Mode:                 easypprof.CpuMode,
 		OutputDir:            path.Join(".", "test_pprof"),
 		FilePrefix:           "my-app",
 		UseTextFormat:        false,
@@ -26,7 +26,7 @@ func ExampleEasyPprof() {
 }
 
 func ExampleMinimalVersion() {
-	// ProfileMode by default is easypprof.CpuMode
+	// Mode by default is easypprof.CpuMode
 	defer easypprof.Start(easypprof.Config{}).Stop()
 
 	// Output:
@@ -50,10 +50,10 @@ func ExampleWithEnv() {
 	mode := os.Getenv("EASY_PPROF_MODE")
 
 	defer easypprof.Start(easypprof.Config{
-		Disable:     disable,
-		ProfileMode: mode,
-		OutputDir:   path.Join(".", "test_pprof"),
-		FilePrefix:  "env",
+		Disable:    disable,
+		Mode:       mode,
+		OutputDir:  path.Join(".", "test_pprof"),
+		FilePrefix: "env",
 	}).Stop()
 
 	// Output:
@@ -65,10 +65,10 @@ func ExampleWithFlags() {
 	flag.Parse()
 
 	defer easypprof.Start(easypprof.Config{
-		Disable:     *disable,
-		ProfileMode: *mode,
-		OutputDir:   path.Join(".", "test_pprof"),
-		FilePrefix:  "flag",
+		Disable:    *disable,
+		Mode:       *mode,
+		OutputDir:  path.Join(".", "test_pprof"),
+		FilePrefix: "flag",
 	}).Stop()
 
 	// Output:

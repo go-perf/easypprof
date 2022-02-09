@@ -58,9 +58,9 @@ type Config struct {
 	// Default is false.
 	Disable bool
 
-	// ProfileMode is one of cpu, goroutine, threadcreate, heap, allocs, block, mutex.
+	// Mode is one of cpu, goroutine, threadcreate, heap, allocs, block, mutex.
 	// Default is empty string and is treated as cpu.
-	ProfileMode string
+	Mode string
 
 	// OutputDir where profile must be saved.
 	// Default is empty string and is treated as ".".
@@ -89,16 +89,16 @@ type Config struct {
 
 // newProfiler creates new profiler based on a config.
 func newProfiler(cfg Config) (*Profiler, error) {
-	if cfg.ProfileMode == "" {
-		cfg.ProfileMode = CpuMode
+	if cfg.Mode == "" {
+		cfg.Mode = CpuMode
 	}
 
-	switch cfg.ProfileMode {
+	switch cfg.Mode {
 	case CpuMode, TraceMode, HeapMode, AllocsMode, MutexMode,
 		BlockMode, ThreadCreateMode, GoroutineMode, FgprofMode:
 		// pass
 	default:
-		return nil, fmt.Errorf("unknown profile mode: %s", cfg.ProfileMode)
+		return nil, fmt.Errorf("unknown profile mode: %s", cfg.Mode)
 	}
 
 	if cfg.OutputDir == "" {
@@ -119,7 +119,7 @@ func newProfiler(cfg Config) (*Profiler, error) {
 		prefix = cfg.FilePrefix + "_"
 	}
 	now := time.Now().Format("20060102-15:04:05")
-	filename := fmt.Sprintf("%s%s_%s.pprof", prefix, cfg.ProfileMode, now)
+	filename := fmt.Sprintf("%s%s_%s.pprof", prefix, cfg.Mode, now)
 
 	if err := os.MkdirAll(cfg.OutputDir, 0777); err != nil {
 		return nil, err
@@ -131,7 +131,7 @@ func newProfiler(cfg Config) (*Profiler, error) {
 
 	p := &Profiler{
 		cfg:    cfg,
-		mode:   cfg.ProfileMode,
+		mode:   cfg.Mode,
 		output: output,
 	}
 	return p, nil

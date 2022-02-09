@@ -33,9 +33,9 @@ go get github.com/go-perf/easypprof
 ```go
 func main() {
 	cfg := easypprof.Config{
-		ProfileMode:          easypprof.CpuMode,
-		OutputDir:            path.Join(".", "test_pprof"),
-		FilePrefix:           "my-app",
+		Mode:       easypprof.CpuMode,
+		OutputDir:  path.Join(".", "test_pprof"),
+		FilePrefix: "my-app",
 	}
 	defer easypprof.Start(cfg).Stop()
 
