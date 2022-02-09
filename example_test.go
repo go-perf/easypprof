@@ -1,175 +1,68 @@
 package easypprof_test
 
 import (
-	"context"
 	"flag"
+	"os"
+	"path"
 	"time"
 
 	"github.com/go-perf/easypprof"
 )
 
 func ExampleEasyPprof() {
-	p, err := easypprof.NewProfiler(easypprof.Config{
-		ProfileMode:   "mutex",
-		FilePrefix:    "abc",
-		UseTextFormat: false,
-	})
-	if err != nil {
-		panic(err)
+	cfg := easypprof.Config{
+		Disable:              os.Getenv("NO_EASY_PPROF") == "true",
+		ProfileMode:          easypprof.CpuMode,
+		OutputDir:            path.Join(".", "test_pprof"),
+		FilePrefix:           "my-app",
+		UseTextFormat:        false,
+		MutexProfileFraction: 12,
+		BlockProfileRate:     100_000,
+		FgprofFormat:         "pprof",
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-	defer cancel()
-
-	if err := p.Run(ctx); err != nil {
-		panic(err)
-	}
+	defer easypprof.Start(cfg).Stop()
 
 	// Output:
 }
 
-func ExampleEasierPprof() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+func ExampleEasyPprofWithPause() {
+	// default config is used
+	p := easypprof.Start(easypprof.Config{})
 
-	go easypprof.Run(ctx, easypprof.Config{
-		ProfileMode:   "heap",
-		FilePrefix:    "xyz",
-		UseTextFormat: false,
-	})
-
-	// Output:
-}
-
-func ExampleCpuAsDefault() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	go easypprof.Run(ctx, easypprof.Config{})
+	defer func() {
+		time.Sleep(time.Second)
+		// and then stop the profiling
+		p.Stop()
+	}()
 
 	// Output:
 }
 
-func ExampleCpuProfile() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+func ExampleWithEnv() {
+	disable := os.Getenv("EASY_PPROF_DISABLE") == "true"
+	mode := os.Getenv("EASY_PPROF_MODE")
 
-	go easypprof.Run(ctx, easypprof.Config{
-		ProfileMode: easypprof.CpuMode,
-	})
-
-	// Output:
-}
-
-func ExampleTraceProfile() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	go easypprof.Run(ctx, easypprof.Config{
-		ProfileMode: easypprof.TraceMode,
-	})
-
-	// Output:
-}
-
-func ExampleHeapProfile() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	go easypprof.Run(ctx, easypprof.Config{
-		ProfileMode: easypprof.HeapMode,
-	})
-
-	// Output:
-}
-
-func ExampleAllocsProfile() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	go easypprof.Run(ctx, easypprof.Config{
-		ProfileMode: easypprof.AllocsMode,
-	})
-
-	// Output:
-}
-
-func ExampleMutexProfile() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	go easypprof.Run(ctx, easypprof.Config{
-		ProfileMode: easypprof.MutexMode,
-	})
-
-	// Output:
-}
-
-func ExampleBlockProfile() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	go easypprof.Run(ctx, easypprof.Config{
-		ProfileMode: easypprof.BlockMode,
-	})
-
-	// Output:
-}
-
-func ExampleThreadCreateProfile() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	go easypprof.Run(ctx, easypprof.Config{
-		ProfileMode: easypprof.ThreadCreateMode,
-	})
-
-	// Output:
-}
-
-func ExampleGoroutineProfile() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	go easypprof.Run(ctx, easypprof.Config{
-		ProfileMode: easypprof.GoroutineMode,
-	})
-
-	// Output:
-}
-
-func ExampleFgprofProfile() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	go easypprof.Run(ctx, easypprof.Config{
-		ProfileMode: easypprof.FgprofMode,
-	})
-
-	// Output:
-}
-
-func ExampleProfilePath() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	go easypprof.Run(ctx, easypprof.Config{})
+	defer easypprof.Start(easypprof.Config{
+		Disable:     disable,
+		ProfileMode: mode,
+		OutputDir:   path.Join(".", "test_pprof"),
+		FilePrefix:  "env",
+	}).Stop()
 
 	// Output:
 }
 
 func ExampleWithFlags() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	mode := flag.String("profile.mode", "", "enable profiling mode, one of: cpu, goroutine, threadcreate, heap, allocs, block, mutex.")
 	disable := flag.Bool("profile.disable", false, "disable profiling? default false")
 	flag.Parse()
 
-	go easypprof.Run(ctx, easypprof.Config{
-		ProfileMode: *mode,
+	defer easypprof.Start(easypprof.Config{
 		Disable:     *disable,
-	})
+		ProfileMode: *mode,
+		OutputDir:   path.Join(".", "test_pprof"),
+		FilePrefix:  "flag",
+	}).Stop()
 
 	// Output:
 }

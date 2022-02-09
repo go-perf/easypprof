@@ -1,7 +1,6 @@
 package easypprof
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -27,20 +26,25 @@ const (
 	FgprofMode       = "fgprof"
 )
 
-// Run a profiler based on a config.
-func Run(ctx context.Context, cfg Config) error {
-	p, err := NewProfiler(cfg)
+// Start profiling based on a config.
+func Start(cfg Config) *Profiler {
+	p, err := newProfiler(cfg)
 	if err != nil {
-		return err
+		panic(fmt.Errorf("easypprof: %w", err))
 	}
-	return p.Run(ctx)
+	if err := p.run(); err != nil {
+		panic(fmt.Errorf("easypprof: %w", err))
+	}
+	return p
 }
 
 // Profiler for the Go programs.
 type Profiler struct {
-	profileMode   string
-	output        io.WriteCloser
-	useTextFormat bool
+	cfg Config
+
+	mode       string
+	output     io.WriteCloser
+	fgprofStop func() error // a bit hacky but simple
 
 	memProfileRate       int
 	blockProfileRate     int
@@ -50,7 +54,8 @@ type Profiler struct {
 
 // Config of the profiler.
 type Config struct {
-	// Disable the profiler. Easy to set as a command-line flag. Default is false.
+	// Disable the profiler. Easy to set as a command-line flag.
+	// Default is false.
 	Disable bool
 
 	// ProfileMode is one of cpu, goroutine, threadcreate, heap, allocs, block, mutex.
@@ -61,31 +66,46 @@ type Config struct {
 	// Default is empty string and is treated as ".".
 	OutputDir string
 
+	// FilePrefix for the output file.
+	// If prefix is specified an additional '_' will be added to the prefix.
 	FilePrefix string
 
-	// UseTextFormat of the resulting pprof file. Default is false.
+	// UseTextFormat of the resulting pprof file.
+	// Default is false.
 	UseTextFormat bool
 
-	// MutexProfileFraction represents the fraction of mutex contention events. Default is 10.
+	// FgprofFormat is a format of the output file.
+	// Default is fgprof.FormatPprof.
+	FgprofFormat string
+
+	// MutexProfileFraction represents the fraction of mutex contention events.
+	// Default is 10.
 	MutexProfileFraction int
 
-	// BlockProfileRate represents the fraction of goroutine blocking events. Default is 10_000.
+	// BlockProfileRate represents the fraction of goroutine blocking events.
+	// Default is 10_000.
 	BlockProfileRate int
-
-	// FgprofFormat is a format of the output file. Default is fgprof.FormatPprof.
-	FgprofFormat fgprof.Format
 }
 
-// NewProfiler creates new Profile based on a config.
-func NewProfiler(cfg Config) (*Profiler, error) {
+// newProfiler creates new profiler based on a config.
+func newProfiler(cfg Config) (*Profiler, error) {
 	if cfg.ProfileMode == "" {
 		cfg.ProfileMode = CpuMode
 	}
+
+	switch cfg.ProfileMode {
+	case CpuMode, TraceMode, HeapMode, AllocsMode, MutexMode,
+		BlockMode, ThreadCreateMode, GoroutineMode, FgprofMode:
+		// pass
+	default:
+		return nil, fmt.Errorf("unknown profile mode: %s", cfg.ProfileMode)
+	}
+
 	if cfg.OutputDir == "" {
 		cfg.OutputDir = "."
 	}
 	if cfg.FgprofFormat == "" {
-		cfg.FgprofFormat = fgprof.FormatPprof
+		cfg.FgprofFormat = string(fgprof.FormatPprof)
 	}
 	if cfg.MutexProfileFraction == 0 {
 		cfg.MutexProfileFraction = 10
@@ -101,47 +121,44 @@ func NewProfiler(cfg Config) (*Profiler, error) {
 	now := time.Now().Format("20060102-15:04:05")
 	filename := fmt.Sprintf("%s%s_%s.pprof", prefix, cfg.ProfileMode, now)
 
+	if err := os.MkdirAll(cfg.OutputDir, 0777); err != nil {
+		return nil, err
+	}
 	output, err := os.Create(path.Join(cfg.OutputDir, filename))
 	if err != nil {
 		return nil, err
 	}
 
 	p := &Profiler{
-		profileMode:   cfg.ProfileMode,
-		output:        output,
-		useTextFormat: cfg.UseTextFormat,
-		fgprofFormat:  cfg.FgprofFormat,
+		cfg:    cfg,
+		mode:   cfg.ProfileMode,
+		output: output,
 	}
 	return p, nil
 }
 
 // Run the profiler.
-func (p *Profiler) Run(ctx context.Context) error {
-	// a bit hacky but simple
-	var fgprofStop func() error
-
-	switch p.profileMode {
+func (p *Profiler) run() error {
+	switch p.mode {
 	case CpuMode:
-		if err := pprof.StartCPUProfile(p.output); err != nil {
-			return err
-		}
+		return pprof.StartCPUProfile(p.output)
 	case TraceMode:
-		if err := trace.Start(p.output); err != nil {
-			return err
-		}
+		return trace.Start(p.output)
 	case MutexMode:
 		runtime.SetMutexProfileFraction(p.mutexProfileFraction)
 	case BlockMode:
 		runtime.SetBlockProfileRate(p.blockProfileRate)
 	case FgprofMode:
-		fgprofStop = fgprof.Start(p.output, p.fgprofFormat)
-	default:
+		p.fgprofStop = fgprof.Start(p.output, p.fgprofFormat)
+	case HeapMode, AllocsMode, ThreadCreateMode, GoroutineMode:
 		// pass
 	}
+	return nil
+}
 
-	<-ctx.Done()
-
-	switch p.profileMode {
+// Stop the profiler and save the result.
+func (p *Profiler) Stop() error {
+	switch p.mode {
 	case CpuMode:
 		pprof.StopCPUProfile()
 	case TraceMode:
@@ -151,19 +168,17 @@ func (p *Profiler) Run(ctx context.Context) error {
 	case BlockMode:
 		runtime.SetBlockProfileRate(0)
 	case FgprofMode:
-		if err := fgprofStop(); err != nil {
+		if err := p.fgprofStop(); err != nil {
 			return err
 		}
-	default:
-		// pass
 	}
 
-	switch p.profileMode {
+	switch p.mode {
 	case CpuMode, TraceMode, FgprofMode:
 		// skip
 	default:
-		profile := pprof.Lookup(p.profileMode)
-		if err := profile.WriteTo(p.output, bool2int(p.useTextFormat)); err != nil {
+		profile := pprof.Lookup(p.mode)
+		if err := profile.WriteTo(p.output, bool2int(p.cfg.UseTextFormat)); err != nil {
 			return err
 		}
 	}
