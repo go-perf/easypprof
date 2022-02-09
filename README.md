@@ -8,10 +8,6 @@
 
 Easy pprof library for Go.
 
-## Rationale
-
-TODO
-
 ## Features
 
 * Simple API.
