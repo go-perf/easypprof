@@ -33,14 +33,9 @@ go get github.com/go-perf/easypprof
 ```go
 func main() {
 	cfg := easypprof.Config{
-		Disable:              os.Getenv("NO_EASY_PPROF") == "true",
 		ProfileMode:          easypprof.CpuMode,
 		OutputDir:            path.Join(".", "test_pprof"),
 		FilePrefix:           "my-app",
-		UseTextFormat:        false,
-		MutexProfileFraction: 12,
-		BlockProfileRate:     100_000,
-		FgprofFormat:         "pprof",
 	}
 	defer easypprof.Start(cfg).Stop()
 
@@ -48,7 +43,7 @@ func main() {
 }
 ```
 
-Also see examples: [examples_test.go](https://github.com/go-perf/easypprof/blob/main/example_test.go).
+See examples for more: [examples_test.go](https://github.com/go-perf/easypprof/blob/main/example_test.go).
 
 ## Documentation
 

@@ -25,6 +25,13 @@ func ExampleEasyPprof() {
 	// Output:
 }
 
+func ExampleMinimalVersion() {
+	// ProfileMode by default is easypprof.CpuMode
+	defer easypprof.Start(easypprof.Config{}).Stop()
+
+	// Output:
+}
+
 func ExampleEasyPprofWithPause() {
 	// default config is used
 	p := easypprof.Start(easypprof.Config{})
