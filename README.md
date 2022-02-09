@@ -8,6 +8,10 @@
 
 Easy pprof library for Go.
 
+## Note
+
+Check [go-profiler-notes](https://github.com/DataDog/go-profiler-notes) for more information about profiling in Go.
+
 ## Features
 
 * Simple API.
