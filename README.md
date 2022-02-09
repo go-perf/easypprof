@@ -15,7 +15,10 @@ TODO
 ## Features
 
 * Simple API.
-* TODO
+* Easy to integrate.
+* Configurable.
+* Supports [fgprof](https://github.com/felixge/fgprof).
+* Improved version of [pkg/profile](https://github.com/pkg/profile).
 
 ## Install
 
@@ -28,7 +31,21 @@ go get github.com/go-perf/easypprof
 ## Example
 
 ```go
-TODO
+func main() {
+	cfg := easypprof.Config{
+		Disable:              os.Getenv("NO_EASY_PPROF") == "true",
+		ProfileMode:          easypprof.CpuMode,
+		OutputDir:            path.Join(".", "test_pprof"),
+		FilePrefix:           "my-app",
+		UseTextFormat:        false,
+		MutexProfileFraction: 12,
+		BlockProfileRate:     100_000,
+		FgprofFormat:         "pprof",
+	}
+	defer easypprof.Start(cfg).Stop()
+
+	// your code
+}
 ```
 
 Also see examples: [examples_test.go](https://github.com/go-perf/easypprof/blob/main/example_test.go).
