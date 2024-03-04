@@ -2,6 +2,6 @@ module github.com/go-perf/easypprof
 
 go 1.17
 
-require github.com/felixge/fgprof v0.9.3
+require github.com/felixge/fgprof v0.9.4
 
-require github.com/google/pprof v0.0.0-20220128192902-513e8ac6eea1 // indirect
+require github.com/google/pprof v0.0.0-20240227163752-401108e1b7e7 // indirect
